@@ -52,9 +52,12 @@ class DynamicProgramming:
         Parameter pi: Policy
         Preconditoin: An array of |S| integers
         '''
-        # TODO 1
-        return np.zeros((self.nStates, self.nActions)) #Placeholder, replace with your code. 
+        V = np.zeros(self.nStates)
 
+        for i in range(self.nStates):
+            V[i] = Q[i, pi[i]]
+
+        return V
 
     def computeQfromV(self, V):
         '''
@@ -65,9 +68,13 @@ class DynamicProgramming:
         Parameter V: value function
         Precondition: An array of |S| numbers
         '''
-        # TODO 2
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        expectation = np.zeros((self.nStates, self.nActions))
+        for i in range(self.nActions):
+            for j in range(self.nStates):
+                for k in range(self.nStates):
+                    expectation[j, i] += self.P[i, j, k] * V[k]
 
+        return np.transpose(self.R) + self.discount * expectation
 
     def extractMaxPifromQ(self, Q):
         '''
@@ -79,9 +86,7 @@ class DynamicProgramming:
         Parameter Q: Q function 
         Precondition: An array of |S|x|A| numbers
         '''
-
-        # TODO 3
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        return np.amax(Q, axis=1)
 
     def extractMaxPifromV(self, V):
         '''
@@ -93,9 +98,7 @@ class DynamicProgramming:
         Parameter V: V function 
         Precondition: An array of |S| numbers
         '''
-        # TODO 4
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
-
+        return np.amax(self.computeQfromV(V), axis=1)
 
     def valueIterationStep(self, Q):
         '''
@@ -105,8 +108,13 @@ class DynamicProgramming:
         Parameter Q: value function 
         Precondition: An array of |S|x|A| numbers
         '''
-        # TODO 5
-        return np.zeros((self.nStates, self.nActions)) #Placeholder, replace with your code. 
+        expectation = np.zeros((self.nStates, self.nActions))
+        for i in range(self.nActions):
+            for j in range(self.nStates):
+                for k in range(self.nStates):
+                    expectation[j, i] += self.P[i, j, k] * np.amax(Q[k])
+
+        return np.transpose(self.R) + self.discount * expectation
 
     def valueIteration(self, initialQ, tolerance=0.01):
         '''
@@ -126,13 +134,19 @@ class DynamicProgramming:
         Parameter tolerance: threshold threshold on ||Q^t-Q^{t+1}||_inf
         Precondition: Float >= 0 (default: 0.01)
         '''
-        # TODO 6
-        #Placeholder, replace with your code. 
-        pi = np.zeros(self.nStates)  
-        V = np.zeros(self.nStates)
-        iterId = 0
-        epsilon = np.inf
-        return pi, V, iterId, epsilon
+        preQ = initialQ
+        n_iters = 0
+        while True:
+            n_iters += 1
+            postQ = self.valueIterationStep(preQ)
+
+            epsilon = np.amax(abs(postQ - preQ))
+            if epsilon > tolerance:
+                preQ = postQ
+            else:
+                pi = self.extractMaxPifromQ(postQ)
+                V = self.computeVfromQ(postQ)
+                return pi, V, n_iters, epsilon
 
     ### EXACT POLICY EVALUATION  ###
     def exactPolicyEvaluation(self, pi):

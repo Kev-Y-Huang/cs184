@@ -86,7 +86,7 @@ class DynamicProgramming:
         Parameter Q: Q function 
         Precondition: An array of |S|x|A| numbers
         '''
-        return np.amax(Q, axis=1)
+        return np.argmax(Q, axis=1)
 
     def extractMaxPifromV(self, V):
         '''
@@ -98,7 +98,7 @@ class DynamicProgramming:
         Parameter V: V function 
         Precondition: An array of |S| numbers
         '''
-        return np.amax(self.computeQfromV(V), axis=1)
+        return np.argmax(self.computeQfromV(V), axis=1)
 
     def valueIterationStep(self, Q):
         '''
@@ -161,9 +161,8 @@ class DynamicProgramming:
         Precondition: array of |S| integers
 
         '''
-        # TODO 7
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
-
+        # Solves the equation (I - gamma P^pi) V^pi = R^pi
+        return np.linalg.solve(np.identity(self.nStates) - self.discount * self.extractPpi(pi), self.extractRpi(pi))
 
     ### APPROXIMATE POLICY EVALUATION ###
     def approxPolicyEvaluation(self, pi, tolerance=0.01):
@@ -179,13 +178,21 @@ class DynamicProgramming:
         Parameter tolerance: threshold threshold on ||V^n-V^n+1||_inf
         Precondition: Float >= 0 (default: 0.01)
         '''
-        # TODO 8
-        
-        #Placeholder, replace with your code. 
-        V = np.zeros(self.nStates)
-        epsilon = np.inf
+        preV = np.zeros(self.nStates)
         n_iters = 0
-        return V, n_iters, epsilon
+        while True:
+            n_iters += 1
+
+            # Solves the equation I V^n+1 = R^pi + gamma P^pi V^n
+            Rpi = self.extractRpi(pi)
+            Ppi = self.extractPpi(pi)
+            postV = np.linalg.solve(np.identity(self.nStates), Rpi + self.discount * Ppi @ preV)
+
+            epsilon = np.amax(abs(postV - preV))
+            if epsilon > tolerance:
+                preV = postV
+            else:
+                return postV, n_iters, epsilon
 
     def policyIterationStep(self, pi, exact):
         '''
@@ -198,8 +205,12 @@ class DynamicProgramming:
         Parameter exact: Indicate whether to use exact policy evaluation 
         Precondition: boolean
         '''
-        # TODO 9
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        if exact:
+            V = self.exactPolicyEvaluation(pi)
+        else:
+            V = self.approxPolicyEvaluation(pi)[0]
+
+        return self.extractMaxPifromV(V).astype(int)
 
     def policyIteration(self, initial_pi, exact):
         '''
@@ -222,10 +233,17 @@ class DynamicProgramming:
         Precondition: boolean
 
         '''
-        # TODO 10
-        #Placeholder, replace with your code. 
-        iterId = 0
-        pi = np.zeros(self.nStates)
-        V = np.zeros(self.nStates)
-        
-        return pi, V, iterId
+        prePi = initial_pi
+        n_iters = 0
+        while True:
+            n_iters += 1
+            postPi = self.policyIterationStep(prePi, exact).astype(int)
+
+            if np.all(postPi == prePi):
+                if exact:
+                    V = self.exactPolicyEvaluation(postPi)
+                else:
+                    V = self.approxPolicyEvaluation(postPi)[0]
+                return postPi, V, n_iters
+            else:
+                prePi = postPi

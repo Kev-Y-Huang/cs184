@@ -145,7 +145,7 @@ class DynamicProgramming:
                 preQ = postQ
             else:
                 pi = self.extractMaxPifromQ(postQ)
-                V = self.computeVfromQ(postQ)
+                V = self.computeVfromQ(postQ, pi)
                 return pi, V, n_iters, epsilon
 
     ### EXACT POLICY EVALUATION  ###

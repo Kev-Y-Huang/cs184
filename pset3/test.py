@@ -11,6 +11,7 @@ def rand_pd_matrix(n):
 
 
 def test_finite_difference():
+    print("Testing Compute Finite Differences...")
     Q = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float64)
     q = np.array([10, 11, 12], dtype=np.float64)
     x_s = np.array([0.1, 0.2, 0.3], dtype=np.float64)

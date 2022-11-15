@@ -13,9 +13,13 @@ def gradient(f, x, delta=1e-5):
     Returns:
         ret (numpy.array): gradient of f at the point x
     """
-    #TODO
     n, = x.shape
     gradient = np.zeros(n).astype('float64')
+
+    for i in range(n):
+        onehot = np.zeros(n).astype('float64')
+        onehot[i] = delta
+        gradient[i] = (f(x + onehot) - f(x - onehot)) / (2 * delta)
 
     return gradient
 
@@ -32,14 +36,20 @@ def jacobian(f, x, delta=1e-5):
         ret (numpy.array): A 2D numpy array with shape (f(x).shape[0], x.shape[0])
                             which is the jacobian of f at the point x
     """
-    #TODO
     n, = x.shape
     m, = f(x).shape
-    x = x.astype('float64') #Need to ensure dtype=np.float64 and also copy input. 
-    gradient = np.zeros((m, n)).astype('float64')
-    
-    return gradient
+    # Need to ensure dtype=np.float64 and also copy input.
+    x = x.astype('float64')
+    jacobian = np.zeros((m, n)).astype('float64')
 
+    for i in range(n):
+        for j in range(m):
+            onehot = np.zeros(n).astype('float64')
+            onehot[i] = delta
+            jacobian[j][i] = (f(x + onehot)[j] -
+                              f(x - onehot)[j]) / (2 * delta)
+
+    return jacobian
 
 
 def hessian(f, x, delta=1e-5):
@@ -54,8 +64,15 @@ def hessian(f, x, delta=1e-5):
         ret (numpy.array): A 2D numpy array with shape (x.shape[0], x.shape[0])
                             which is the Hessian of f at the point x
     """
-    #TODO
-    pass
-    
+    n, = x.shape
+    hessian = np.zeros((n, n)).astype('float64')
 
+    for i in range(n):
+        onehot_first = np.zeros(n).astype('float64')
+        onehot_first[i] = delta
+        gradient_pos = gradient(f, x + onehot_first, delta)
+        gradient_neg = gradient(f, x - onehot_first, delta)
+        for j in range(n):
+            hessian[j][i] = (gradient_pos[j] - gradient_neg[j]) / (2 * delta)
 
+    return hessian

@@ -30,10 +30,9 @@ def compute_Q_params(A, B, m, Q, R, M, q, r, b, P, y, p):
         h (1d numpy array): A numpy array with shape (1,)
 
         where the following equation should hold
-        Q_t^*(s) = s^T C s + a^T D a + s^T E a + f^T s  + g^T a + h
+        Q_t^*(s) = s^T C s + a^T D a + s^T E a + f^T s + g^T a + h
 
     """
-    # TODO
     n_s, n_a = B.shape
     assert A.shape == (n_s, n_s)
     assert B.shape == (n_s, n_a)
@@ -48,14 +47,14 @@ def compute_Q_params(A, B, m, Q, R, M, q, r, b, P, y, p):
     assert y.shape == (n_s, 1)
     assert p.shape == (1, )
 
-    C = np.zeros((n_s, n_s))
-    D = np.zeros((n_s, n_a))
-    E = np.zeros((n_s, n_a))
-    f = np.zeros(n_s, 1)
-    g = np.zeros(n_a, 1)
-    h = np.zeros(1)
+    C = Q + A.T @ P @ A
+    D = R + B.T @ P @ B
+    E = M + 2 * A.T @ P @ B
+    f = q + 2 * A.T @ P @ m + A.T @ y
+    g = r + 2 * B.T @ P @ m + B.T @ y
+    h = b + m.T @ P @ m + y.T @ m + p
 
-    return C, D, E, f, g, h
+    return C, D, E, f, g, h.flatten()
 
 
 def compute_policy(A, B, m, C, D, E, f, g, h):
@@ -82,7 +81,6 @@ def compute_policy(A, B, m, C, D, E, f, g, h):
         where the following holds
         \pi*_t(s) = K_t s + k_t
     """
-    # TODO
     n_s, n_a = B.shape
     assert A.shape == (n_s, n_s)
     assert B.shape == (n_s, n_a)
@@ -95,8 +93,8 @@ def compute_policy(A, B, m, C, D, E, f, g, h):
     assert h.shape == (1, )
 
     n_s, n_a = B.shape
-    K_t = np.zeros((n_a, n_s))
-    k_t = np.zeros(n_a)
+    K_t = -0.5 * np.linalg.inv(D) @ E.T
+    k_t = -0.5 * np.linalg.inv(D) @ g
 
     return K_t, k_t
 
@@ -124,7 +122,6 @@ def compute_V_params(A, B, m, C, D, E, f, g, h, K, k):
         y_h (2d numpy array): A numpy array with shape (n_s, 1)
         p_h (1d numpy array): A numpy array with shape (1,)
     """
-    # TODO
     n_s, n_a = B.shape
     assert A.shape == (n_s, n_s)
     assert B.shape == (n_s, n_a)
@@ -138,11 +135,11 @@ def compute_V_params(A, B, m, C, D, E, f, g, h, K, k):
     assert K.shape == (n_a, n_s)
     assert k.shape == (n_a, 1)
 
-    P_h = np.zeros((n_s, n_s))
-    y_h = np.zeros((n_s, 1))
-    p_h = np.zeros(1)
+    P_h = C + K.T @ D @ K + E @ K
+    y_h = (2 * k.T @ D @ K + k.T @ E.T + f.T + g.T @ K).T
+    p_h = k.T @ D @ k + g.T @ k + h
 
-    return P_h, y_h, p_h
+    return P_h, y_h, p_h.flatten()
 
 
 def lqr(A, B, m, Q, R, M, q, r, b, T):
@@ -170,7 +167,6 @@ def lqr(A, B, m, Q, R, M, q, r, b, T):
         ret (list): A list, [(K_0, k_0), (K_1, k_1), ..., (K_{T-1}, k_{T-1})]
         and the shape of K_t is (n_a, n_s), the shape of k_t is (n_a,)
     """
-    # TODO
     n_s, n_a = B.shape
 
     assert A.shape == (n_s, n_s)
@@ -183,4 +179,14 @@ def lqr(A, B, m, Q, R, M, q, r, b, T):
     assert r.shape == (n_a, 1)
     assert b.shape == (1, )
 
-    return [(np.zeros((n_a, n_s)), np.zeros(n_a)) for _ in range(T)]
+    P, y, p = np.zeros((n_s, n_s)), np.zeros((n_s, 1)), np.zeros((1, ))
+
+    output = []
+
+    for i in reversed(range(T)):
+        C, D, E, f, g, h = compute_Q_params(A, B, m, Q, R, M, q, r, b, P, y, p)
+        K, k = compute_policy(A, B, m, C, D, E, f, g, h)
+        output = [(K, k.flatten())] + output
+        P, y, p = compute_V_params(A, B, m, C, D, E, f, g, h, K, k)
+
+    return output

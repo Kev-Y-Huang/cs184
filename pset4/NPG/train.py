@@ -19,7 +19,22 @@ def sample(theta, env, N):
     total_rewards = []
     total_grads = []
 
-    # TODO
+    for _ in range(N):
+        total_rewards.append([])
+        total_grads.append([])
+        state = env.reset()
+
+        for _ in range(200):
+            phis = utils.extract_features(state, 2)
+            policy = utils.compute_action_distribution(theta, phis)
+            action = np.random.choice(2, 1, p=policy.flatten())
+            state, reward, done, info = env.step(action.item())
+
+            total_grads[-1].append(utils.compute_log_softmax_grad(theta, phis, action))
+            total_rewards[-1].append(reward)
+
+            if done:
+                break
 
     return total_grads, total_rewards
 
@@ -41,7 +56,16 @@ def train(N, T, delta, lamb=1e-3):
 
     episode_rewards = []
 
-    # TODO
+    for _ in range(T):
+        grads, rewards = sample(theta, env, N)
+        fisher = utils.compute_fisher_matrix(grads, lamb)
+        v_grad = utils.compute_value_gradient(grads, rewards)
+        eta = utils.compute_eta(delta, fisher, v_grad)
+
+        theta += eta * np.linalg.inv(fisher) @ v_grad
+        for i in range(len(rewards)):
+            rewards[i] = sum(rewards[i])
+        episode_rewards.append(np.average(rewards))
 
     return theta, episode_rewards
 

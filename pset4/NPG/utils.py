@@ -29,9 +29,8 @@ def compute_softmax(logits, axis):
 
     Hint: to make the softmax more stable, subtract the max from the vector before applying softmax
     """
-
-    # TODO
-    pass
+    stable_e = np.exp(logits - np.max(logits))
+    return stable_e / np.sum(stable_e, axis=axis)
 
 
 def compute_action_distribution(theta, phis):
@@ -41,9 +40,7 @@ def compute_action_distribution(theta, phis):
     :param phis: RFF features of the state and actions (shape d x |A|)
     :return: softmax probability distribution over actions (shape 1 x |A|)
     """
-
-    # TODO
-    pass
+    return compute_softmax(theta.T @ phis, 1)
 
 
 def compute_log_softmax_grad(theta, phis, action_idx):
@@ -54,9 +51,12 @@ def compute_log_softmax_grad(theta, phis, action_idx):
     :param action_idx: The index of the action you want to compute the gradient of theta with respect to
     :return: log softmax gradient (shape d x 1)
     """
-
-    # TODO
-    pass
+    softmax = compute_action_distribution(theta, phis)
+    state_dim, action_dim = phis.shape
+    expectation = np.zeros((state_dim, 1))
+    for action in range(action_dim):
+        expectation += softmax[0, action] * phis[:,action, None]
+    return np.reshape(phis[:,action_idx], (state_dim, 1)) - expectation
 
 
 def compute_fisher_matrix(grads, lamb=1e-3):
@@ -71,20 +71,40 @@ def compute_fisher_matrix(grads, lamb=1e-3):
 
     Note: don't forget to take into account that trajectories might have different lengths
     """
+    D = grads[0][0].shape[0]
 
-    # TODO
-    pass
+    fisher_matrix = np.zeros((D, D))
+
+    for trajectory in grads:
+        total = np.zeros((D, D))
+        for grad in trajectory:
+            total += grad @ grad.T
+        fisher_matrix += total / len(trajectory)
+
+    return fisher_matrix / len(grads) + lamb * np.identity(D)
 
 def compute_value_gradient(grads, rewards):
     """ computes the value function gradient with respect to the sampled gradients and rewards
 
-    :param grads: ist of list of gradients, where each sublist represents a trajectory
+    :param grads: list of list of gradients, where each sublist represents a trajectory
     :param rewards: list of list of rewards, where each sublist represents a trajectory
     :return: value function gradient with respect to theta (shape d x 1)
     """
+    D = grads[0][0].shape[0]
+    N = len(grads)
 
-    # TODO
-    pass
+    total_grad = np.zeros((D, 1))
+    b = 0
+
+    for i in range(N):
+        b += sum(rewards[i]) / N
+
+    for i in range(N):
+        H = len(grads[i])
+        for h in range(H):
+            total_grad += grads[i][h] * (sum(rewards[i][h:]) - b) / H
+
+    return total_grad / N
 
 def compute_eta(delta, fisher, v_grad):
     """ computes the learning rate for gradient descent
@@ -94,7 +114,5 @@ def compute_eta(delta, fisher, v_grad):
     :param v_grad: value function gradient with respect to theta (shape d x 1)
     :return: the maximum learning rate that respects the trust region size delta
     """
-
-    # TODO
-    pass
+    return np.sqrt(delta / (v_grad.T @ np.linalg.inv(fisher) @ v_grad + 10**(-6)))
 

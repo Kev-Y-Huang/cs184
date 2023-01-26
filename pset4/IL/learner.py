@@ -25,8 +25,13 @@ class BC:
 
 
     def learn(self, expert_states, expert_actions):
-        # TODO Do gradient descent here.
-        pass
+        self.optimizer.zero_grad()
+        logits = self.get_logits(expert_states)
+        loss = self.loss(logits, expert_actions)
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item()
 
     def load(self, path):
         self.policy.load_state_dict(torch.load(path))
@@ -42,23 +47,48 @@ class DAGGER:
         self.optimizer = optim.Adam(self.policy.parameters(), lr=args.lr)
         
         policy_path = os.path.join(args.expert_save_path, args.env.lower() + '_policy.pt')
-        self.expert_policy = DQN.load(policy_path)
+        self.expert_policy = DQN.load(policy_path, custom_objects={'learning_rate': 0.0, 'lr_schedule': lambda _: 0.0, 'exploration_schedule': lambda _: 0.0})
         self.loss = nn.CrossEntropyLoss()
 
     def rollout(self, env, num_steps):
-        # TODO Rollout for 'num_steps' steps in the environment. Reset if necessary.
-        pass
+        # State to keep track of datapoints for rollout
+        states = []
+        expert_actions = []
+
+        state = env.reset()
+
+        for _ in range(num_steps):
+            # Append current state in the right format
+            state = torch.from_numpy(state).float()
+            states.append(state)
+
+            # Get logits based on state and generate the actions from both the current and expert policy
+            logits = self.get_logits(state)
+            expert_actions.append(torch.from_numpy(self.expert_policy.predict(state, deterministic=True)[0]))
+            action = self.sample_from_logits(logits)
+            state, _, done, _ = env.step(action)
+
+            # Reset environment if if environment is done
+            if done:
+                state = env.reset()
+
+        # Return correctly formatted data
+        return ExpertData(torch.stack(states), torch.stack(expert_actions))
     
     def get_logits(self, states):
         return self.policy(states)
 
     def sample_from_logits(self, logits):
-        # TODO Given logits from our neural network, sample an action from the distribution defined by said logits.
-        pass
+        return pyd.categorical.Categorical(logits=logits).sample().numpy()
 
     def learn(self, expert_states, expert_actions):
-        # TODO Gradient descent here, like in BC
-        pass
+        self.optimizer.zero_grad()
+        logits = self.get_logits(expert_states)
+        loss = self.loss(logits, expert_actions)
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item()
     
     def load(self, path):
         self.policy.load_state_dict(torch.load(path))

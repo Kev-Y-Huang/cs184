@@ -47,6 +47,6 @@ def plot_losses(epochs, losses, env_name, is_dagger=True):
     
     plot_dir = osp.join('./plots', 'dagger' if is_dagger else 'bc')
     if is_dagger:
-        plt.savefig(osp.join(plot_dir, f'dagger_losses_{env_name}.png'))
+        plt.savefig(osp.join(plot_dir, f'dagger_losses_{env_name}_lr_2.png'))
     else:
-        plt.savefig(osp.join(plot_dir, f'bc_losses_{env_name}.png'))
+        plt.savefig(osp.join(plot_dir, f'bc_losses_{env_name}_lr_2.png'))

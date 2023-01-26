@@ -11,10 +11,11 @@ from dataset import ExpertData, ExpertDataset
 def experiment(args):
     # expert dataset loading
     save_path = os.path.join(args.data_dir, args.env+'_dataset.pt')
-    if args.dagger: #Initialize initial dataset to be empty for dagger.
-        expert_dataset = ExpertDataset(ExpertData(torch.tensor([]), torch.tensor([], dtype=int)))
-    else:
-        expert_dataset = torch.load(save_path)
+    # if args.dagger: #Initialize initial dataset to be empty for dagger.
+    #     expert_dataset = ExpertDataset(ExpertData(torch.tensor([]), torch.tensor([], dtype=int)))
+    # else:
+    #     expert_dataset = torch.load(save_path)
+    expert_dataset = torch.load(save_path)
     #Create env
     env = gym.make(args.env)
     state_dim = env.observation_space.shape[0]
@@ -30,17 +31,24 @@ def experiment(args):
         epoch_losses = []
         for _ in tqdm(range(1, args.dagger_epochs+1)):
             # Rollout new data
-            # TODO Rollout the data
+            expert_dataset.add_data(learner.rollout(env, args.num_rollout_steps))
 
             #Supervised learning step
             supervision_loss = []
             for _ in tqdm(range(1, args.dagger_supervision_steps+1)):
                 loss = 0.0
-                # TODO Gradient descent
-                pass
+                dataloader = get_dataloader(expert_dataset, args)
+
+                # Iterate through each batch
+                for batch in dataloader:
+                    states, actions = batch
+                    loss += learner.learn(states, actions)
+
+                loss /= len(dataloader)
                 
                 supervision_loss.append(loss)
-            epoch_losses += np.mean(supervision_loss)
+
+            epoch_losses.append(np.mean(supervision_loss))
 
 
     else:
@@ -49,15 +57,19 @@ def experiment(args):
 
         for _ in tqdm(range(1, args.bc_epochs+1)):
             loss = 0.0
-            # TODO Learning occurs over all batches in the dataloader
-            # Start by 'for batch in dataloader:' ... 
-            pass
+
+            # Iterate through each batch
+            for batch in dataloader:
+                states, actions = batch
+                loss += learner.learn(states, actions)
+
+            loss /= len(dataloader)
             
             epoch_losses.append(loss)
     
     # plotting
-    #epochs = np.arange(1, args.dagger_epochs + 1 if args.dagger else args.bc_epochs + 1)
-    #plot_losses(epochs, epoch_losses, args.env, args.dagger)
+    epochs = np.arange(1, args.dagger_epochs + 1 if args.dagger else args.bc_epochs + 1)
+    plot_losses(epochs, epoch_losses, args.env, args.dagger)
             
     # saving policy
     if not os.path.exists(args.policy_save_dir):

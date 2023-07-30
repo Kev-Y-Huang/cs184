@@ -1,8 +1,9 @@
 import numpy as np
+from MDP import MDP
 
 
 class DynamicProgramming:
-    def __init__(self, MDP):
+    def __init__(self, MDP: MDP):
         self.R = MDP.R  # |A|x|S|
         self.P = MDP.P  # |A|x|S|x|S|
         self.discount = MDP.discount
@@ -10,7 +11,7 @@ class DynamicProgramming:
         self.nActions = MDP.nActions
 
     ####Helpers####
-    def extractRpi(self, pi):
+    def extractRpi(self, pi: np.ndarray) -> np.ndarray:
         '''
         Returns R(s, pi(s)) for all states. Thus, the output will be an array of |S| entries. 
         This should be used in policy evaluation and policy iteration. 
@@ -28,7 +29,7 @@ class DynamicProgramming:
         '''
         return self.R[pi, np.arange(len(self.R[0]))]
 
-    def extractPpi(self, pi):
+    def extractPpi(self, pi) -> np.ndarray:
         '''
         Returns P^pi: This is a |S|x|S| matrix where the (i,j) entry corresponds to 
         P(j|i, pi(i))
@@ -40,7 +41,7 @@ class DynamicProgramming:
         return self.P[pi, np.arange(len(self.P[0]))]
 
     ####Value Iteration###
-    def computeVfromQ(self, Q, pi):
+    def computeVfromQ(self, Q: np.ndarray, pi: np.ndarray) -> np.ndarray:
         '''
         Returns the V function for a given Q function corresponding to a deterministic policy pi. Remember that
 
@@ -52,11 +53,9 @@ class DynamicProgramming:
         Parameter pi: Policy
         Preconditoin: An array of |S| integers
         '''
-        # TODO 1
-        return np.zeros((self.nStates, self.nActions)) #Placeholder, replace with your code. 
+        return Q[np.arange(Q.shape[0]), pi]
 
-
-    def computeQfromV(self, V):
+    def computeQfromV(self, V: np.ndarray) -> np.ndarray:
         '''
         Returns the Q function given a V function corresponding to a policy pi. The output is an |S|x|A| array.
 
@@ -65,11 +64,15 @@ class DynamicProgramming:
         Parameter V: value function
         Precondition: An array of |S| numbers
         '''
-        # TODO 2
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        Q = np.zeros((self.nStates, self.nActions))
+        
+        for s in range(self.nStates):
+            for a in range(self.nActions):
+                Q[s, a] = self.R[a, s] + self.discount * np.dot(self.P[a, s, :], V)
 
+        return Q
 
-    def extractMaxPifromQ(self, Q):
+    def extractMaxPifromQ(self, Q: np.ndarray) -> np.ndarray:
         '''
         Returns the policy pi corresponding to the Q-function determined by 
 
@@ -79,11 +82,9 @@ class DynamicProgramming:
         Parameter Q: Q function 
         Precondition: An array of |S|x|A| numbers
         '''
+        return np.argmax(Q, axis=1)
 
-        # TODO 3
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
-
-    def extractMaxPifromV(self, V):
+    def extractMaxPifromV(self, V: np.ndarray) -> np.ndarray:
         '''
         Returns the policy corresponding to the V-function. Compute the Q-function
         from the given V-function and then extract the policy following
@@ -93,11 +94,11 @@ class DynamicProgramming:
         Parameter V: V function 
         Precondition: An array of |S| numbers
         '''
-        # TODO 4
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        Q = self.computeQfromV(V)
+        return self.extractMaxPifromQ(Q)
 
 
-    def valueIterationStep(self, Q):
+    def valueIterationStep(self, Q: np.ndarray) -> np.ndarray:
         '''
         Returns the Q function after one step of value iteration. The input
         Q can be thought of as the Q-value at iteration t. Return Q^{t+1}.
@@ -105,10 +106,9 @@ class DynamicProgramming:
         Parameter Q: value function 
         Precondition: An array of |S|x|A| numbers
         '''
-        # TODO 5
-        return np.zeros((self.nStates, self.nActions)) #Placeholder, replace with your code. 
+        return self.computeQfromV(self.computeVfromQ(Q, self.extractMaxPifromQ(Q)))
 
-    def valueIteration(self, initialQ, tolerance=0.01):
+    def valueIteration(self, initialQ: np.ndarray, tolerance=0.01):
         '''
         This function runs value iteration on the input initial Q-function until 
         a certain tolerance is met. Specifically, value iteration should continue to run until 
@@ -126,16 +126,22 @@ class DynamicProgramming:
         Parameter tolerance: threshold threshold on ||Q^t-Q^{t+1}||_inf
         Precondition: Float >= 0 (default: 0.01)
         '''
-        # TODO 6
-        #Placeholder, replace with your code. 
-        pi = np.zeros(self.nStates)  
-        V = np.zeros(self.nStates)
-        iterId = 0
-        epsilon = np.inf
-        return pi, V, iterId, epsilon
+        it = 0
+        
+        while True:
+            it += 1
+            Q = self.valueIterationStep(initialQ)
+            epsilon = np.max(np.abs(Q - initialQ))
+            if epsilon <= tolerance:
+                break
+            initialQ = Q
+
+        pi = self.extractMaxPifromQ(Q)
+        V = self.computeVfromQ(Q, pi)
+        return pi, V, it, epsilon
 
     ### EXACT POLICY EVALUATION  ###
-    def exactPolicyEvaluation(self, pi):
+    def exactPolicyEvaluation(self, pi: np.ndarray):
         '''
 
         Evaluate a policy by solving a system of linear equations
@@ -147,8 +153,7 @@ class DynamicProgramming:
         Precondition: array of |S| integers
 
         '''
-        # TODO 7
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        return np.linalg.inv(np.eye(self.nStates) - self.discount * self.extractPpi(pi)) @ self.extractRpi(pi)
 
 
     ### APPROXIMATE POLICY EVALUATION ###
@@ -165,13 +170,18 @@ class DynamicProgramming:
         Parameter tolerance: threshold threshold on ||V^n-V^n+1||_inf
         Precondition: Float >= 0 (default: 0.01)
         '''
-        # TODO 8
-        
-        #Placeholder, replace with your code. 
-        V = np.zeros(self.nStates)
-        epsilon = np.inf
-        n_iters = 0
-        return V, n_iters, epsilon
+        it = 0
+        prev_V = np.zeros(self.nStates)
+
+        while True:
+            it += 1
+            V = self.extractRpi(pi) + self.discount * np.matmul(self.extractPpi(pi), prev_V)
+            epsilon = np.max(np.abs(V - prev_V))
+            if epsilon <= tolerance:
+                break
+            prev_V = V
+
+        return V, it, epsilon
 
     def policyIterationStep(self, pi, exact):
         '''
@@ -184,8 +194,12 @@ class DynamicProgramming:
         Parameter exact: Indicate whether to use exact policy evaluation 
         Precondition: boolean
         '''
-        # TODO 9
-        return np.zeros(self.nStates) #Placeholder, replace with your code. 
+        if exact:
+            V = self.exactPolicyEvaluation(pi)
+        else:
+            V = self.approxPolicyEvaluation(pi)[0]
+
+        return self.extractMaxPifromV(V)
 
     def policyIteration(self, initial_pi, exact):
         '''
@@ -208,10 +222,17 @@ class DynamicProgramming:
         Precondition: boolean
 
         '''
-        # TODO 10
-        #Placeholder, replace with your code. 
-        iterId = 0
-        pi = np.zeros(self.nStates)
-        V = np.zeros(self.nStates)
+        it = 1
+        pi = self.policyIterationStep(initial_pi, exact)
         
-        return pi, V, iterId
+        while not np.array_equal(pi, initial_pi):
+            it += 1
+            initial_pi = pi
+            pi = self.policyIterationStep(initial_pi, exact)
+
+        if exact:
+            V = self.exactPolicyEvaluation(pi)
+        else:
+            V = self.approxPolicyEvaluation(pi)[0]
+            
+        return pi, V, it

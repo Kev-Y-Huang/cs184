@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class MDP:
-	def __init__(self, P, R, discount):
+	def __init__(self, P: np.ndarray, R: np.ndarray, discount: float):
 		"""
 		The constructor verifies that the inputs are valid and sets
 		corresponding variables in a MDP object
